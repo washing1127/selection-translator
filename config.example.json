@@ -1,0 +1,42 @@
+{
+  "api": {
+    "provider": "qwen",
+    "apiKey": "YOUR_API_KEY_HERE",
+    "model": "qwen-turbo",
+    "providers": {
+      "qwen": {
+        "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "model": "qwen-turbo",
+        "chatPath": "/chat/completions"
+      },
+      "kimi": {
+        "baseUrl": "https://api.moonshot.cn/v1",
+        "model": "moonshot-v1-8k",
+        "chatPath": "/chat/completions"
+      },
+      "openai": {
+        "baseUrl": "https://api.openai.com/v1",
+        "model": "gpt-4o-mini",
+        "chatPath": "/chat/completions"
+      },
+      "deepseek": {
+        "baseUrl": "https://api.deepseek.com/v1",
+        "model": "deepseek-chat",
+        "chatPath": "/chat/completions"
+      }
+    }
+  },
+  "translation": {
+    "sourceLang": "auto",
+    "targetLang": "zh"
+  },
+  "cache": {
+    "maxSize": 500
+  },
+  "ui": {
+    "buttonOpacity": 0.75,
+    "buttonOffsetX": 12,
+    "buttonOffsetY": -8,
+    "dpiScale": 1.0
+  }
+}

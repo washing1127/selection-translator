@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# User config — contains API key, never commit this
+config.json
+
+# Build output
+dist/
+out/
+build/*.exe
+build/*.dmg
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Electron cache
+.cache/
+package-lock.json

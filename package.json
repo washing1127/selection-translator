@@ -1,0 +1,16 @@
+{
+  "name": "selection-translator",
+  "version": "1.0.0",
+  "description": "Selection-based translator using LLM APIs",
+  "main": "main/index.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev"
+  },
+  "dependencies": {
+    "uiohook-napi": "*"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0"
+  }
+}

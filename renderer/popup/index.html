@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; background: transparent; overflow: hidden;
+  font-family: -apple-system, 'Helvetica Neue', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased; }
+
+#root {
+  width: 100%; height: 100%;
+  opacity: 0; transform: translateY(4px) scale(0.97);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+#root.visible { opacity: 1; transform: none; }
+#root.hiding  { opacity: 0; transform: translateY(3px) scale(0.98); }
+
+.card {
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column;
+  background: rgba(16,16,20,0.93);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06);
+  overflow: hidden;
+  -webkit-app-region: drag;
+}
+
+/* Header */
+.hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 8px 7px 11px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  flex-shrink: 0;
+}
+.hdr-left { display: flex; align-items: center; gap: 7px; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: #5aaeff; flex-shrink: 0; }
+.provider { font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.3);
+  letter-spacing: 0.08em; text-transform: uppercase; }
+.cached { font-size: 9px; color: rgba(255,255,255,0.18); padding: 1px 5px;
+  background: rgba(255,255,255,0.05); border-radius: 3px; display: none; }
+.hdr-btns { display: flex; align-items: center; gap: 3px; -webkit-app-region: no-drag; }
+
+/* Buttons */
+.hbtn {
+  width: 24px; height: 22px; border: none; background: transparent; border-radius: 5px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,0.35);
+  transition: background 0.12s, color 0.12s, transform 0.1s;
+  -webkit-app-region: no-drag;
+}
+.hbtn:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8); }
+.hbtn:active { transform: scale(0.9); }
+.hbtn.on-lock { color: #5aaeff; background: rgba(90,174,255,0.12); }
+.hbtn.on-copy { color: #4dcc80; background: rgba(77,204,128,0.12); }
+
+/* Content */
+.content {
+  flex: 1; padding: 10px 12px 8px; overflow-y: auto; overflow-x: hidden;
+  -webkit-app-region: no-drag;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.08) transparent;
+  min-height: 0;
+}
+.content::-webkit-scrollbar { width: 3px; }
+.content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+.translation {
+  font-size: 13px; line-height: 1.65; color: rgba(255,255,255,0.88);
+  word-break: break-word; white-space: pre-wrap; user-select: text;
+  -webkit-app-region: no-drag;
+}
+
+/* Footer */
+.ftr {
+  padding: 4px 10px 5px; display: flex; align-items: center; justify-content: space-between;
+  border-top: 1px solid rgba(255,255,255,0.04); flex-shrink: 0;
+}
+.src { font-size: 10px; color: rgba(255,255,255,0.18); font-style: italic;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 230px;
+  user-select: none; -webkit-app-region: no-drag; }
+.grip { opacity: 0.1; }
+</style>
+</head>
+<body>
+<div id="root">
+  <div class="card">
+    <div class="hdr">
+      <div class="hdr-left">
+        <div class="dot" id="dot"></div>
+        <span class="provider" id="prov">—</span>
+        <span class="cached" id="cached">cached</span>
+      </div>
+      <div class="hdr-btns">
+        <!-- Copy -->
+        <button class="hbtn" id="btn-copy" title="Copy translation">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <rect x="4.5" y="4.5" width="7.5" height="7.5" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+            <path d="M3 8.5H2A1.5 1.5 0 01.5 7V2A1.5 1.5 0 012 .5h5A1.5 1.5 0 018.5 2v.5" stroke="currentColor" stroke-width="1.2"/>
+          </svg>
+        </button>
+        <!-- Lock -->
+        <button class="hbtn" id="btn-lock" title="Lock window">
+          <svg id="lock-open" width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <rect x="1.5" y="6" width="10" height="6.5" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+            <path d="M4.5 6V4a2 2 0 014 0" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            <circle cx="6.5" cy="9.25" r="0.85" fill="currentColor"/>
+          </svg>
+          <svg id="lock-closed" width="13" height="13" viewBox="0 0 13 13" fill="none" style="display:none">
+            <rect x="1.5" y="6" width="10" height="6.5" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+            <path d="M4.5 6V4a2 2 0 014 0v2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            <circle cx="6.5" cy="9.25" r="0.85" fill="currentColor"/>
+          </svg>
+        </button>
+        <!-- Close -->
+        <button class="hbtn" id="btn-close" title="Close">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+            <path d="M1.5 1.5L9.5 9.5M9.5 1.5L1.5 9.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="translation" id="trans"></div>
+    </div>
+
+    <div class="ftr">
+      <span class="src" id="src"></span>
+      <svg class="grip" width="10" height="10" viewBox="0 0 10 10">
+        <path d="M2 10L10 2M5 10L10 5M8 10L10 8" stroke="white" stroke-width="1.3" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<script>
+const { ipcRenderer, clipboard } = require('electron')
+
+const root    = document.getElementById('root')
+const dot     = document.getElementById('dot')
+const prov    = document.getElementById('prov')
+const cached  = document.getElementById('cached')
+const trans   = document.getElementById('trans')
+const src     = document.getElementById('src')
+const btnCopy = document.getElementById('btn-copy')
+const btnLock = document.getElementById('btn-lock')
+const btnClose= document.getElementById('btn-close')
+const lockOpen  = document.getElementById('lock-open')
+const lockClosed= document.getElementById('lock-closed')
+
+const COLORS = { qwen:'#5aaeff', kimi:'#a07aff', openai:'#19c37d', deepseek:'#ff7a5a' }
+
+let locked = false
+let currentTranslation = ''
+
+ipcRenderer.on('show-content', (_, { text, translation, provider, fromCache }) => {
+  currentTranslation = translation
+  const color = COLORS[provider?.toLowerCase()] || '#5aaeff'
+  dot.style.background = color
+  prov.textContent = (provider || 'LLM').toUpperCase()
+  cached.style.display = fromCache ? 'inline' : 'none'
+  src.textContent = text?.length > 48 ? text.slice(0, 48) + '…' : (text || '')
+  trans.textContent = translation
+  root.classList.remove('hiding')
+  requestAnimationFrame(() => requestAnimationFrame(() => root.classList.add('visible')))
+})
+
+ipcRenderer.on('reset-state', () => {
+  root.classList.remove('visible')
+  root.classList.add('hiding')
+  locked = false
+  syncLock()
+  setTimeout(() => { root.classList.remove('hiding'); trans.textContent = ''; src.textContent = '' }, 160)
+})
+
+// Copy
+btnCopy.onclick = () => {
+  if (!currentTranslation) return
+  clipboard.writeText(currentTranslation)
+  btnCopy.classList.add('on-copy')
+  btnCopy.innerHTML = `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5L5 9.5L11 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+  setTimeout(() => {
+    btnCopy.classList.remove('on-copy')
+    btnCopy.innerHTML = `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="4.5" y="4.5" width="7.5" height="7.5" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M3 8.5H2A1.5 1.5 0 01.5 7V2A1.5 1.5 0 012 .5h5A1.5 1.5 0 018.5 2v.5" stroke="currentColor" stroke-width="1.2"/></svg>`
+  }, 1500)
+}
+
+// Lock
+btnLock.onclick = () => {
+  locked = !locked
+  syncLock()
+  ipcRenderer.send('set-popup-locked', locked)
+}
+function syncLock() {
+  if (locked) {
+    btnLock.classList.add('on-lock')
+    lockOpen.style.display = 'none'
+    lockClosed.style.display = 'block'
+    btnLock.title = 'Unlock window'
+  } else {
+    btnLock.classList.remove('on-lock')
+    lockOpen.style.display = 'block'
+    lockClosed.style.display = 'none'
+    btnLock.title = 'Lock window'
+  }
+}
+
+// Close
+btnClose.onclick = () => {
+  locked = false
+  ipcRenderer.send('set-popup-locked', false)
+  ipcRenderer.send('hide-popup')
+}
+</script>
+</body>
+</html>
