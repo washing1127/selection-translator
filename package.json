@@ -8,7 +8,7 @@
     "dev": "electron . --dev"
   },
   "dependencies": {
-    "uiohook-napi": "*"
+    "uiohook-napi": "^1.5.5"
   },
   "devDependencies": {
     "electron": "^28.0.0"

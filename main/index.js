@@ -15,6 +15,8 @@ let buttonVisible = false
 let lastSelectedText = ''
 let hideButtonTimer = null
 let skipNextMouseUp = false  // set when mousedown closes popup, to suppress the paired mouseup
+let lastMouseUpTime = 0
+let lastMouseUpPos = { x: 0, y: 0 }
 
 // Convert uiohook physical px → Electron logical px
 function toLogical(physX, physY) {
@@ -85,15 +87,23 @@ function setupMouseListener() {
     onMouseUp: async ({ physX, physY, didDrag, holdMs }) => {
       const { x, y } = toLogical(physX, physY)
 
-      // Ignore plain short clicks (not a text selection)
-      if (!didDrag && holdMs < 100) return
-
       // Don't retrigger when releasing mouse on our button
       if (windowManager && windowManager.isButtonAt(x, y)) return
 
       // If mousedown just closed the popup, skip this mouseup entirely.
       // Prevents Ctrl+C being sent to the newly focused window (e.g. terminal → SIGINT).
       if (skipNextMouseUp) { skipNextMouseUp = false; return }
+
+      // Detect double-click: two mouseups at same position within 400ms
+      const now = Date.now()
+      const dx = Math.abs(x - lastMouseUpPos.x)
+      const dy = Math.abs(y - lastMouseUpPos.y)
+      const isDoubleClick = (now - lastMouseUpTime < 400) && dx < 8 && dy < 8
+      lastMouseUpTime = now
+      lastMouseUpPos = { x, y }
+
+      // Skip plain single short clicks (not a drag selection, not a double-click)
+      if (!didDrag && holdMs < 100 && !isDoubleClick) return
 
       setTimeout(async () => {
         const text = await accessibility.getSelectedText()
