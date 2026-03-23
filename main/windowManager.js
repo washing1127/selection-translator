@@ -1,14 +1,3 @@
-/**
- * WindowManager
- *
- * Popup close behavior:
- *   showInactive() — popup never steals focus, so scroll/keyboard stay in background app.
- *   Click-outside detection via handleGlobalMouseDown() called from mouseListener.
- *
- * No scroll tracking.
- * All coords are Electron logical pixels (already DPI-converted by caller).
- */
-
 const { BrowserWindow, screen } = require('electron')
 const path = require('path')
 const { setNoActivate } = require('./winNoActivate')
@@ -25,9 +14,6 @@ class WindowManager {
     await this._createButtonWindow()
     await this._createPopupWindow()
   }
-
-  // ── Click-outside detection ───────────────────────────────────────────────
-  // Called from main process on every global mousedown (via uiohook setImmediate).
 
   handleGlobalMouseDown(x, y) {
     if (!this.popupWin?.isVisible()) return
@@ -46,7 +32,7 @@ class WindowManager {
       show: false, frame: false, transparent: true,
       alwaysOnTop: true, skipTaskbar: true,
       resizable: false, movable: false,
-      focusable: false,  // never steal focus
+      focusable: false,
       hasShadow: false,
       type: process.platform === 'darwin' ? 'panel' : 'toolbar',
       webPreferences: { nodeIntegration: true, contextIsolation: false }
@@ -93,7 +79,7 @@ class WindowManager {
       show: false, frame: false, transparent: true,
       alwaysOnTop: true, skipTaskbar: true,
       resizable: true, movable: true,
-      focusable: true,   // must be true so user can click inside (copy button, etc.)
+      focusable: true,
       hasShadow: false,
       type: process.platform === 'darwin' ? 'panel' : 'toolbar',
       webPreferences: {
@@ -107,24 +93,23 @@ class WindowManager {
     }
     if (process.platform === 'win32') {
       this.popupWin.setAlwaysOnTop(true, 'screen-saver')
+      this.popupWin.once('ready-to-show', () => setNoActivate(this.popupWin))
     }
     this.popupWin.loadFile(path.join(__dirname, '../renderer/popup/index.html'))
 
-    // Set WS_EX_NOACTIVATE so the popup truly never steals focus on Windows
-    this.popupWin.once('ready-to-show', () => {
-      setNoActivate(this.popupWin)
-    })
-    // No blur handler — close is handled via handleGlobalMouseDown()
+    if (process.platform === 'darwin') {
+      this.popupWin.on('blur', () => {
+        if (!this.popupLocked) this.hidePopup()
+      })
+    }
   }
 
   showPopup(anchorX, anchorY, text, translation, fromCache = false) {
     if (!this.popupWin) return
-    // Hide button immediately and synchronously before anything else
     this.hideButton()
 
     const { bounds } = screen.getDisplayNearestPoint({ x: anchorX, y: anchorY })
     const pw = 360, ph = 190, margin = 14
-
     let px = anchorX + margin
     let py = anchorY + margin
     if (px + pw > bounds.x + bounds.width)  px = anchorX - pw - margin
@@ -138,16 +123,20 @@ class WindowManager {
       provider: this.config.api.provider,
       fromCache: !!fromCache
     })
-    // showInactive: popup appears without stealing focus
-    // → background app keeps focus, scroll/keyboard work normally
-    this.popupWin.showInactive()
+
+    if (process.platform === 'darwin') {
+      this.popupWin.show()
+      this.popupWin.focus()
+    } else {
+      this.popupWin.showInactive()
+    }
   }
 
   hidePopup() {
     if (!this.popupWin?.isVisible()) return
     this.popupLocked = false
     this.popupWin.webContents.send('reset-state')
-    this.popupWin.hide()  // hide immediately — no delay to avoid focus race conditions
+    this.popupWin.hide()
   }
 
   setPopupLocked(locked) {

@@ -2,6 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { width: 100%; height: 100%; background: transparent; overflow: hidden;
@@ -70,6 +71,26 @@ html, body { width: 100%; height: 100%; background: transparent; overflow: hidde
   font-size: 13px; line-height: 1.65; color: rgba(255,255,255,0.88);
   word-break: break-word; white-space: pre-wrap; user-select: text;
   -webkit-app-region: no-drag;
+}
+
+/* Loading state */
+.loading-wrap {
+  display: flex; align-items: center; gap: 10px;
+  color: rgba(255,255,255,0.45); font-size: 12px;
+}
+.spinner {
+  width: 14px; height: 14px; flex-shrink: 0;
+  border: 1.5px solid rgba(255,255,255,0.1);
+  border-top-color: rgba(90,170,255,0.8);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Error state */
+.error-wrap {
+  font-size: 12px; color: rgba(255,100,100,0.8);
+  line-height: 1.5;
 }
 
 /* Footer */
@@ -155,6 +176,23 @@ const COLORS = { qwen:'#5aaeff', kimi:'#a07aff', openai:'#19c37d', deepseek:'#ff
 let locked = false
 let currentTranslation = ''
 
+ipcRenderer.on('show-loading', () => {
+  currentTranslation = ''
+  src.textContent = ''
+  cacheBadge.style.display = 'none'
+  prov.textContent = 'TRANSLATING'
+  dot.style.background = 'rgba(255,255,255,0.3)'
+  trans.innerHTML = `<div class="loading-wrap"><div class="spinner"></div><span>正在翻译…</span></div>`
+  root.classList.remove('hiding')
+  requestAnimationFrame(() => requestAnimationFrame(() => root.classList.add('visible')))
+})
+
+ipcRenderer.on('show-error', (_, { msg }) => {
+  trans.innerHTML = `<div class="error-wrap">翻译失败：${escapeHtml(msg)}</div>`
+  prov.textContent = 'ERROR'
+  dot.style.background = 'rgba(255,80,80,0.8)'
+})
+
 ipcRenderer.on('show-content', (_, { text, translation, provider, fromCache }) => {
   currentTranslation = translation
   const color = COLORS[provider?.toLowerCase()] || '#5aaeff'
@@ -207,11 +245,23 @@ function syncLock() {
   }
 }
 
+// ESC key to close
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    locked = false
+    ipcRenderer.send('set-popup-locked', false)
+    ipcRenderer.send('hide-popup')
+  }
+})
+
 // Close
 btnClose.onclick = () => {
   locked = false
   ipcRenderer.send('set-popup-locked', false)
   ipcRenderer.send('hide-popup')
+}
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
 }
 </script>
 </body>

@@ -1,12 +1,10 @@
-const { app, ipcMain, screen, Menu, Tray, nativeImage, dialog } = require('electron')
+const { app, ipcMain, screen, Menu, Tray, nativeImage, dialog, globalShortcut } = require('electron')
 const path = require('path')
 const fs = require('fs')
 
-// Single instance lock
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) { app.quit(); process.exit(0) }
 
-// Hide dock on macOS
 if (process.platform === 'darwin') app.dock.hide()
 
 let config, cache, windowManager, mouseListener, accessibility, apiClient
@@ -14,11 +12,10 @@ let tray = null
 let buttonVisible = false
 let lastSelectedText = ''
 let hideButtonTimer = null
-let skipNextMouseUp = false  // set when mousedown closes popup, to suppress the paired mouseup
+let skipNextMouseUp = false
 let lastMouseUpTime = 0
 let lastMouseUpPos = { x: 0, y: 0 }
 
-// Convert uiohook physical px → Electron logical px
 function toLogical(physX, physY) {
   const scale = config?.ui?.dpiScale ?? 1.0
   return { x: Math.round(physX / scale), y: Math.round(physY / scale) }
@@ -47,36 +44,71 @@ app.whenReady().then(async () => {
 
   await windowManager.init()
   setupIPC()
-  setupMouseListener()
-  setupTray()
 
+  if (process.platform === 'win32') {
+    setupMouseListener()
+  } else if (process.platform === 'darwin') {
+    setupMacShortcut()
+  }
+
+  setupTray()
   console.log('[Main] started, dpiScale:', config?.ui?.dpiScale ?? 1.0)
 })
 
 app.on('window-all-closed', e => e.preventDefault())
 app.on('before-quit', () => {
+  if (process.platform === 'darwin') globalShortcut.unregisterAll()
   if (mouseListener) mouseListener.stopListening()
   if (process.platform === 'win32') {
     try { require('./sendKey').cleanup() } catch {}
   }
 })
 
-// ── Mouse listener ────────────────────────────────────────────────────────────
+// ── macOS shortcut (Option+F) ─────────────────────────────────────────────────
+
+function setupMacShortcut() {
+  globalShortcut.register('Alt+F', async () => {
+    // Toggle: if popup already visible, close it
+    if (windowManager && windowManager.isPopupVisible()) {
+      windowManager.hidePopup()
+      return
+    }
+
+    const text = await accessibility.getSelectedText()
+    if (!text || text.trim().length < 1) return
+
+    lastSelectedText = text.trim()
+    const pos = screen.getCursorScreenPoint()
+    const key = `${config.api.provider}:::${config.translation.targetLang}:::${lastSelectedText}`
+    const cached = cache.get(key)
+    if (cached) {
+      windowManager.showPopup(pos.x, pos.y, lastSelectedText, cached, true)
+      return
+    }
+
+    try {
+      const result = await apiClient.translateText(lastSelectedText, config)
+      cache.set(key, result)
+      windowManager.showPopup(pos.x, pos.y, lastSelectedText, result, false)
+    } catch (err) {
+      console.error('[translate]', err.message)
+    }
+  })
+  console.log('[Main] macOS shortcut registered: Option+F')
+}
+
+// ── Windows mouse listener ────────────────────────────────────────────────────
 
 function setupMouseListener() {
   mouseListener.startListening({
 
     onMouseDown: ({ physX, physY }) => {
       const { x, y } = toLogical(physX, physY)
-      // If popup is visible and click is outside, this mousedown will close it.
-      // Mark skipNextMouseUp so the paired mouseup doesn't trigger text-read + Ctrl+C.
       if (windowManager && windowManager.isPopupVisible()) {
         const inside = windowManager.isPopupAt(x, y)
         if (!inside) skipNextMouseUp = true
       }
-      // Click-outside: hide popup if click is outside popup bounds
       if (windowManager) windowManager.handleGlobalMouseDown(x, y)
-      // Hide translate button if click is not on it
       if (windowManager && !windowManager.isButtonAt(x, y) && buttonVisible) {
         windowManager.hideButton()
         buttonVisible = false
@@ -86,15 +118,9 @@ function setupMouseListener() {
 
     onMouseUp: async ({ physX, physY, didDrag, holdMs }) => {
       const { x, y } = toLogical(physX, physY)
-
-      // Don't retrigger when releasing mouse on our button
       if (windowManager && windowManager.isButtonAt(x, y)) return
-
-      // If mousedown just closed the popup, skip this mouseup entirely.
-      // Prevents Ctrl+C being sent to the newly focused window (e.g. terminal → SIGINT).
       if (skipNextMouseUp) { skipNextMouseUp = false; return }
 
-      // Detect double-click: two mouseups at same position within 400ms
       const now = Date.now()
       const dx = Math.abs(x - lastMouseUpPos.x)
       const dy = Math.abs(y - lastMouseUpPos.y)
@@ -102,7 +128,6 @@ function setupMouseListener() {
       lastMouseUpTime = now
       lastMouseUpPos = { x, y }
 
-      // Skip plain single short clicks (not a drag selection, not a double-click)
       if (!didDrag && holdMs < 100 && !isDoubleClick) return
 
       setTimeout(async () => {
@@ -118,7 +143,7 @@ function setupMouseListener() {
         } else {
           if (buttonVisible) { windowManager.hideButton(); buttonVisible = false }
         }
-      }, 80)  // 80ms: enough for OS to finalize selection
+      }, 80)
     }
   })
 }
@@ -128,14 +153,13 @@ function setupMouseListener() {
 function setupIPC() {
   ipcMain.handle('get-selected-text', () => lastSelectedText)
 
-  // Fresh read at button-click time — bypasses stale lastSelectedText cache
   ipcMain.handle('read-selected-text-now', async () => {
     const text = await accessibility.getSelectedText()
     if (text && text.trim().length > 1) {
-      lastSelectedText = text.trim()  // update cache while we're at it
+      lastSelectedText = text.trim()
       return lastSelectedText
     }
-    return lastSelectedText  // fallback to cached
+    return lastSelectedText
   })
 
   ipcMain.handle('translate', async (event, { text }) => {
@@ -155,7 +179,7 @@ function setupIPC() {
   ipcMain.on('show-popup', (event, { x, y, text, translation, fromCache }) => {
     buttonVisible = false
     clearTimeout(hideButtonTimer)
-    windowManager.hideButton()  // belt-and-suspenders: also called inside showPopup
+    windowManager.hideButton()
     windowManager.showPopup(x, y, text, translation, fromCache)
   })
 

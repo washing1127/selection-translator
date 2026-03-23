@@ -37,6 +37,7 @@
     "buttonOpacity": 0.75,
     "buttonOffsetX": 12,
     "buttonOffsetY": -8,
-    "dpiScale": 1.0
+    "dpiScale": 1.0,
+    "macShortcut": "Option+F"
   }
 }

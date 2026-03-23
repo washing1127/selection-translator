@@ -15,7 +15,7 @@
 下载并安装 [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022)，安装时勾选「使用 C++ 的桌面开发」。
 
 **macOS** 运行：
-> 可先运行 `xcode-select -p` 和 `clang --version` 检测是否已安装 Xcode 命令行工具。如果前者输出路径信息，后者输出版本信息，则表示已安装。就不需要再执行下面的安装命令了。
+> 可先运行 `xcode-select -p` 和 `clang --version` 检测是否已安装 Xcode 命令行工具。如果前者输出路径信息，后者输出版本信息，则表示已安装，不需要再执行下面的安装命令。
 ```bash
 xcode-select --install
 ```
@@ -26,8 +26,13 @@ xcode-select --install
 git clone https://github.com/washing1127/selection-translator.git
 cd selection-translator
 npm install
+```
+
+**Windows** 还需要额外安装原生鼠标监听模块：
+```bash
 npm install uiohook-napi
 ```
+> macOS 不需要此步骤，使用快捷键 `Option+F` 触发翻译，无需监听鼠标事件。
 
 ### 3. 配置 API Key
 
@@ -48,7 +53,7 @@ cp config.example.json config.json
 ```
 
 ### 4. ⚠️ Windows 高分屏必须设置 dpiScale
-> **macOS 固定为 1**
+> **macOS 固定为 1，不需要改**
 
 编辑 `config.json`：
 
@@ -58,7 +63,7 @@ cp config.example.json config.json
 }
 ```
 
-**dpiScale = Windows 显示缩放百分比 ÷ 100** 
+**dpiScale = Windows 显示缩放百分比 ÷ 100**
 
 | Windows 缩放设置 | dpiScale |
 |-----------------|----------|
@@ -76,20 +81,28 @@ cp config.example.json config.json
 npm start
 ```
 
-或者双击`start.bat`(win) / `start.sh`(mac)
+或者双击 `start.bat`（Windows） / `start.sh`（macOS）
 
 ---
 
 ## 使用方式
 
-1. 用鼠标在任意应用中拖选文字
-2. 光标旁出现半透明翻译按钮（约 1 个字符大小）
+**Windows**：
+1. 拖选或双击选中文字
+2. 光标旁出现半透明翻译按钮
 3. 点击按钮，等待翻译结果
-4. 悬浮窗操作：
-   - **复制**：复制译文到剪贴板
-   - **锁定**：锁定后点击外部不关闭窗口
-   - **×**：关闭
-   - 未锁定时点击窗口外任意位置自动关闭
+
+**macOS**：
+1. 选中文字
+2. 按 `Option+F`，等待翻译完成后悬浮窗弹出
+3. 再次按 `Option+F` 可关闭悬浮窗
+
+悬浮窗操作：
+- **复制**：复制译文到剪贴板
+- **锁定**：锁定后 ESC / × 才能关闭，点击外部不关闭
+- **×**：关闭
+- **ESC**：关闭（macOS）
+- 未锁定时点击窗口外任意位置自动关闭（macOS）
 
 翻译按钮 4 秒未点击自动消失。
 
@@ -113,7 +126,7 @@ npm start
     "maxSize": 500            // 内存缓存上限（LRU，重启清空）
   },
   "ui": {
-    "dpiScale": 1.0,          // ⚠️ Windows 缩放比例 ÷ 100
+    "dpiScale": 1.0,          // ⚠️ Windows 缩放比例 ÷ 100，macOS 固定 1.0
     "buttonOpacity": 0.75,    // 翻译按钮透明度 0~1
     "buttonOffsetX": 12,      // 按钮相对鼠标 X 偏移（逻辑像素）
     "buttonOffsetY": -8       // 按钮相对鼠标 Y 偏移（逻辑像素）
@@ -153,10 +166,11 @@ npm start
 
 | 问题 | 说明 |
 |------|------|
-| 微信、Trae 等应用延迟较高 | UI Automation 覆盖不到时走剪贴板方案（Ctrl+C），首次约 300ms，后续约 50ms |
-| 终端中不要用于选中文本翻译 | 剪贴板方案会发送 Ctrl+C，在终端中可能会中断正在运行的程序 |
+| 微信、Trae 等应用延迟较高（Windows） | UI Automation 覆盖不到时走剪贴板方案（Ctrl+C），首次约 300ms，后续约 50ms |
+| 终端中不要用于选中文本翻译（Windows） | 剪贴板方案会发送 Ctrl+C，在终端中可能会中断正在运行的程序 |
+| macOS 改为快捷键触发 | uiohook 在 macOS 上有兼容性问题，改用 Option+F 快捷键触发，避免干扰系统行为 |
 | 悬浮窗不跟随页面滚动 | 跨进程无法获取其他应用的滚动事件，此功能未实现 |
-| 多显示器不同缩放比例 | dpiScale 只支持单一值，多显示器缩放不同时按主显示器设置 |
+| 多显示器不同缩放比例（Windows） | dpiScale 只支持单一值，多显示器缩放不同时按主显示器设置 |
 
 ---
 
@@ -170,10 +184,10 @@ selection-translator/
 │   ├── apiClient.js        # LLM API 调用
 │   ├── cache.js            # LRU 缓存
 │   ├── config.js           # 配置读取
-│   ├── mouseListener.js    # 全局鼠标监听（uiohook-napi）
-│   ├── sendKey.js          # 快速发送 Ctrl+C（持久化 PS 进程）
+│   ├── mouseListener.js    # 全局鼠标监听（uiohook-napi，仅 Windows）
+│   ├── sendKey.js          # 快速发送 Ctrl+C（持久化 PS 进程，仅 Windows）
 │   ├── winNoActivate.js    # Windows 窗口不抢焦点
-│   └── windowManager.js   # 窗口管理
+│   └── windowManager.js    # 窗口管理
 ├── renderer/
 │   ├── button/index.html   # 翻译按钮
 │   └── popup/index.html    # 翻译结果窗口
@@ -182,5 +196,7 @@ selection-translator/
 ├── config.json             # 实际配置，含 API Key（已加入 .gitignore）
 ├── .gitignore
 ├── .npmrc                  # npm 镜像（国内加速）
+├── start.bat               # Windows 后台启动脚本
+├── start.sh                # macOS 后台启动脚本
 └── package.json
 ```

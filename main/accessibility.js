@@ -10,13 +10,10 @@ async function getSelectedText() {
 // ── Windows ───────────────────────────────────────────────────────────────────
 
 async function getWindows() {
-  // 1. UI Automation — fast, no side effects, works for browsers/native apps
   try {
     const text = await windowsUIA()
     if (text) return text
   } catch {}
-
-  // 2. Clipboard method — for Electron apps (Trae/VSCode), WeChat, etc.
   return clipboardMethod('win32')
 }
 
@@ -51,10 +48,12 @@ try {
 // ── macOS ─────────────────────────────────────────────────────────────────────
 
 async function getMac() {
+  // Try AXSelectedText first (no side effects)
   try {
     const text = await macAX()
     if (text) return text
   } catch {}
+  // Fallback: clipboard method
   return clipboardMethod('darwin')
 }
 
@@ -81,26 +80,32 @@ return ""`
   })
 }
 
-// ── Clipboard method ──────────────────────────────────────────────────────────
+// ── Clipboard method (both platforms) ────────────────────────────────────────
 
 async function clipboardMethod(platform) {
-  const savedText = clipboard.readText()
-  const savedHTML = clipboard.readHTML()
-  const savedRTF  = clipboard.readRTF()
+  const savedText  = clipboard.readText()
+  const savedHTML  = clipboard.readHTML()
+  const savedRTF   = clipboard.readRTF()
+  const savedImage = clipboard.readImage()
+  const hasImage   = !savedImage.isEmpty()
 
   const SENTINEL = '\u0000__seltrans__\u0000'
   clipboard.writeText(SENTINEL)
 
   await sendCopyKey(platform)
-  await sleep(80)  // wait for clipboard to update
+  await sleep(80)
 
   const newText = clipboard.readText()
 
-  // Restore clipboard asynchronously
   setTimeout(() => {
     try {
-      if (savedHTML) clipboard.write({ text: savedText, html: savedHTML, rtf: savedRTF })
-      else clipboard.writeText(savedText)
+      if (hasImage) {
+        clipboard.write({ text: savedText, html: savedHTML, rtf: savedRTF, image: savedImage })
+      } else if (savedHTML) {
+        clipboard.write({ text: savedText, html: savedHTML, rtf: savedRTF })
+      } else {
+        clipboard.writeText(savedText)
+      }
     } catch { try { clipboard.writeText(savedText) } catch {} }
   }, 50)
 
@@ -115,7 +120,6 @@ function sendCopyKey(platform) {
         { timeout: 1000 }, () => resolve())
     })
   } else {
-    // Windows: use persistent PS process for low latency
     const { sendCtrlC } = require('./sendKey')
     return sendCtrlC()
   }
