@@ -23,6 +23,7 @@ async function getWindows() {
 
 function windowsUIA() {
   const ps = `
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 $el = [System.Windows.Automation.AutomationElement]::FocusedElement
@@ -39,7 +40,7 @@ try {
   return new Promise((resolve, reject) => {
     const enc = Buffer.from(ps, 'utf16le').toString('base64')
     exec(`powershell -NoProfile -NonInteractive -EncodedCommand ${enc}`,
-      { timeout: 2000 },
+      { timeout: 2000, encoding: 'utf8' },
       (err, stdout) => {
         if (err) return reject(err)
         const t = stdout.trim()
@@ -136,6 +137,7 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
 
 function isTerminalForeground() {
   const ps = `
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
@@ -155,7 +157,7 @@ try {
 `
   return new Promise((resolve, reject) => {
     const enc = Buffer.from(ps, 'utf16le').toString('base64')
-    exec(`powershell -NoProfile -NonInteractive -EncodedCommand ${enc}`, { timeout: 2000 },
+    exec(`powershell -NoProfile -NonInteractive -EncodedCommand ${enc}`, { timeout: 2000, encoding: 'utf8' },
       (err, stdout) => {
         if (err) return reject(err)
         const name = (stdout || '').trim().toLowerCase()
