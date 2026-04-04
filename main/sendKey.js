@@ -57,10 +57,38 @@ function initPS() {
   return initPromise
 }
 
-// Pre-compile the SendKeys Add-Type block once, so subsequent calls are instant
+// Pre-compile the SendKeys and SendInput helpers once
 const ADD_TYPE_CMD = `
 Add-Type -AssemblyName System.Windows.Forms
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class KB {
+  [StructLayout(LayoutKind.Sequential)]
+  public struct INPUT { public uint type; public InputUnion U; }
+  [StructLayout(LayoutKind.Explicit)]
+  public struct InputUnion { [FieldOffset(0)] public KEYBDINPUT ki; }
+  [StructLayout(LayoutKind.Sequential)]
+  public struct KEYBDINPUT { public ushort wVk; public ushort wScan; public uint dwFlags; public uint time; public IntPtr dwExtraInfo; }
+  [DllImport("user32.dll", SetLastError=true)]
+  public static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+  public const uint INPUT_KEYBOARD = 1;
+  public const uint KEYEVENTF_KEYUP = 0x0002;
+  public const ushort VK_CONTROL = 0x11;
+  public static void ReleaseCtrl() {
+    INPUT i = new INPUT();
+    i.type = INPUT_KEYBOARD;
+    i.U.ki.wVk = VK_CONTROL;
+    i.U.ki.wScan = 0;
+    i.U.ki.dwFlags = KEYEVENTF_KEYUP;
+    i.U.ki.time = 0;
+    i.U.ki.dwExtraInfo = IntPtr.Zero;
+    SendInput(1, new INPUT[]{ i }, System.Runtime.InteropServices.Marshal.SizeOf(typeof(INPUT)));
+  }
+}
+"@
 function Send-CtrlC { [System.Windows.Forms.SendKeys]::SendWait("^c") }
+function Release-Ctrl { [KB]::ReleaseCtrl() }
 Write-Output "ctrlc_ready"
 `
 
@@ -103,14 +131,44 @@ async function sendCtrlC() {
       }
     }
     psProcess.stdout.on('data', onData)
-    psProcess.stdin.write('Send-CtrlC; Write-Output "ctrlc_sent"\n')
+    psProcess.stdin.write('Send-CtrlC; Release-Ctrl; Write-Output "ctrlc_sent"\n')
     setTimeout(resolve, 500)  // safety timeout
   })
 }
 
 function sendCtrlCFallback() {
   return new Promise((resolve) => {
-    const ps = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait("^c")`
+    const ps = `
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class KB {
+  [StructLayout(LayoutKind.Sequential)]
+  public struct INPUT { public uint type; public InputUnion U; }
+  [StructLayout(LayoutKind.Explicit)]
+  public struct InputUnion { [FieldOffset(0)] public KEYBDINPUT ki; }
+  [StructLayout(LayoutKind.Sequential)]
+  public struct KEYBDINPUT { public ushort wVk; public ushort wScan; public uint dwFlags; public uint time; public IntPtr dwExtraInfo; }
+  [DllImport("user32.dll", SetLastError=true)]
+  public static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+  public const uint INPUT_KEYBOARD = 1;
+  public const uint KEYEVENTF_KEYUP = 0x0002;
+  public const ushort VK_CONTROL = 0x11;
+  public static void ReleaseCtrl() {
+    INPUT i = new INPUT();
+    i.type = INPUT_KEYBOARD;
+    i.U.ki.wVk = VK_CONTROL;
+    i.U.ki.wScan = 0;
+    i.U.ki.dwFlags = KEYEVENTF_KEYUP;
+    i.U.ki.time = 0;
+    i.U.ki.dwExtraInfo = IntPtr.Zero;
+    SendInput(1, new INPUT[]{ i }, System.Runtime.InteropServices.Marshal.SizeOf(typeof(INPUT)));
+  }
+}
+"@
+[System.Windows.Forms.SendKeys]::SendWait("^c"); [KB]::ReleaseCtrl()
+`
     const enc = Buffer.from(ps, 'utf16le').toString('base64')
     const { exec } = require('child_process')
     exec(`powershell -NoProfile -NonInteractive -EncodedCommand ${enc}`,

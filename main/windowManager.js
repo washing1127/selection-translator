@@ -104,20 +104,24 @@ class WindowManager {
     }
   }
 
-  showPopup(anchorX, anchorY, text, translation, fromCache = false) {
-    if (!this.popupWin) return
-    this.hideButton()
-
+  _positionPopup(anchorX, anchorY) {
     const { bounds } = screen.getDisplayNearestPoint({ x: anchorX, y: anchorY })
-    const pw = 360, ph = 190, margin = 14
+    const [pw, ph] = this.popupWin.getSize()
+    const margin = 14
     let px = anchorX + margin
     let py = anchorY + margin
     if (px + pw > bounds.x + bounds.width)  px = anchorX - pw - margin
     if (py + ph > bounds.y + bounds.height) py = anchorY - ph - margin
     px = Math.max(bounds.x + 4, Math.min(px, bounds.x + bounds.width  - pw - 4))
     py = Math.max(bounds.y + 4, Math.min(py, bounds.y + bounds.height - ph - 4))
-
     this.popupWin.setPosition(Math.round(px), Math.round(py), false)
+  }
+
+  showPopup(anchorX, anchorY, text, translation, fromCache = false) {
+    if (!this.popupWin) return
+    this.hideButton()
+
+    this._positionPopup(anchorX, anchorY)
     this.popupWin.webContents.send('show-content', {
       text, translation,
       provider: this.config.api.provider,
@@ -130,6 +134,33 @@ class WindowManager {
     } else {
       this.popupWin.showInactive()
     }
+  }
+
+  showPopupLoading(anchorX, anchorY) {
+    if (!this.popupWin) return
+    this.hideButton()
+    this._positionPopup(anchorX, anchorY)
+    this.popupWin.webContents.send('show-loading')
+    if (process.platform === 'darwin') {
+      this.popupWin.show()
+      this.popupWin.focus()
+    } else {
+      this.popupWin.showInactive()
+    }
+  }
+
+  updatePopupContent(text, translation, fromCache = false) {
+    if (!this.popupWin) return
+    this.popupWin.webContents.send('show-content', {
+      text, translation,
+      provider: this.config.api.provider,
+      fromCache: !!fromCache
+    })
+  }
+
+  updatePopupError(msg) {
+    if (!this.popupWin) return
+    this.popupWin.webContents.send('show-error', { msg })
   }
 
   hidePopup() {

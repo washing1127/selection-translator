@@ -14,6 +14,10 @@ async function getWindows() {
     const text = await windowsUIA()
     if (text) return text
   } catch {}
+  try {
+    const inTerm = await isTerminalForeground()
+    if (inTerm) return ''
+  } catch {}
   return clipboardMethod('win32')
 }
 
@@ -93,9 +97,12 @@ async function clipboardMethod(platform) {
   clipboard.writeText(SENTINEL)
 
   await sendCopyKey(platform)
-  await sleep(80)
-
-  const newText = clipboard.readText()
+  let newText = ''
+  for (const wait of [60, 120, 200]) {
+    await sleep(wait)
+    const t = clipboard.readText()
+    if (t && !t.includes('__seltrans__')) { newText = t; break }
+  }
 
   setTimeout(() => {
     try {
@@ -126,5 +133,40 @@ function sendCopyKey(platform) {
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
+
+function isTerminalForeground() {
+  const ps = `
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class FG {
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+}
+"@
+$h = [FG]::GetForegroundWindow()
+if ($h -eq [IntPtr]::Zero) { return }
+$pid = 0
+[void][FG]::GetWindowThreadProcessId($h, [ref]$pid)
+try {
+  $p = Get-Process -Id $pid -ErrorAction Stop
+  ($p.ProcessName).ToLowerInvariant()
+} catch {}
+`
+  return new Promise((resolve, reject) => {
+    const enc = Buffer.from(ps, 'utf16le').toString('base64')
+    exec(`powershell -NoProfile -NonInteractive -EncodedCommand ${enc}`, { timeout: 2000 },
+      (err, stdout) => {
+        if (err) return reject(err)
+        const name = (stdout || '').trim().toLowerCase()
+        if (!name) return resolve(false)
+        const list = [
+          'conhost','cmd','powershell','pwsh','windowsterminal','wt',
+          'alacritty','wezterm','mintty','hyper','cmder','git-bash','bash'
+        ]
+        resolve(list.some(n => name.includes(n)))
+      })
+  })
+}
 
 module.exports = { getSelectedText }

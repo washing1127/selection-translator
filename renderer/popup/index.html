@@ -179,7 +179,7 @@ let currentTranslation = ''
 ipcRenderer.on('show-loading', () => {
   currentTranslation = ''
   src.textContent = ''
-  cacheBadge.style.display = 'none'
+  cached.style.display = 'none'
   prov.textContent = 'TRANSLATING'
   dot.style.background = 'rgba(255,255,255,0.3)'
   trans.innerHTML = `<div class="loading-wrap"><div class="spinner"></div><span>正在翻译…</span></div>`
@@ -261,6 +261,7 @@ btnClose.onclick = () => {
   ipcRenderer.send('hide-popup')
 }
 function escapeHtml(str) {
+  if (!str) return ''
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
 }
 </script>

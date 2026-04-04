@@ -17,8 +17,27 @@ let lastMouseUpTime = 0
 let lastMouseUpPos = { x: 0, y: 0 }
 
 function toLogical(physX, physY) {
-  const scale = config?.ui?.dpiScale ?? 1.0
-  return { x: Math.round(physX / scale), y: Math.round(physY / scale) }
+  try {
+    const displays = screen.getAllDisplays()
+    const primary = screen.getPrimaryDisplay()
+    let chosen = primary
+    for (const d of displays) {
+      const scale = d.scaleFactor || 1.0
+      const bx = d.bounds.x * scale
+      const by = d.bounds.y * scale
+      const bw = d.bounds.width * scale
+      const bh = d.bounds.height * scale
+      if (physX >= bx && physX <= bx + bw && physY >= by && physY <= by + bh) {
+        chosen = d
+        break
+      }
+    }
+    const scale = chosen.scaleFactor || 1.0
+    return { x: Math.round(physX / scale), y: Math.round(physY / scale) }
+  } catch {
+    const scale = config?.ui?.dpiScale ?? 1.0
+    return { x: Math.round(physX / scale), y: Math.round(physY / scale) }
+  }
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
@@ -130,11 +149,11 @@ function setupMouseListener() {
 
       if (!didDrag && holdMs < 100 && !isDoubleClick) return
 
-      setTimeout(async () => {
+      try {
         const text = await accessibility.getSelectedText()
         if (text && text.trim().length > 1) {
           lastSelectedText = text.trim()
-          windowManager.showButton(x, y, lastSelectedText)
+          windowManager.showButton(x, y)
           buttonVisible = true
           clearTimeout(hideButtonTimer)
           hideButtonTimer = setTimeout(() => {
@@ -143,7 +162,9 @@ function setupMouseListener() {
         } else {
           if (buttonVisible) { windowManager.hideButton(); buttonVisible = false }
         }
-      }, 80)
+      } catch {
+        if (buttonVisible) { windowManager.hideButton(); buttonVisible = false }
+      }
     }
   })
 }
@@ -181,6 +202,21 @@ function setupIPC() {
     clearTimeout(hideButtonTimer)
     windowManager.hideButton()
     windowManager.showPopup(x, y, text, translation, fromCache)
+  })
+
+  ipcMain.on('show-popup-loading', (event, { x, y }) => {
+    buttonVisible = false
+    clearTimeout(hideButtonTimer)
+    windowManager.hideButton()
+    windowManager.showPopupLoading(x, y)
+  })
+
+  ipcMain.on('show-popup-content', (event, { text, translation, fromCache }) => {
+    windowManager.updatePopupContent(text, translation, fromCache)
+  })
+
+  ipcMain.on('show-popup-error', (event, { msg }) => {
+    windowManager.updatePopupError(msg)
   })
 
   ipcMain.on('hide-button', () => { windowManager.hideButton(); buttonVisible = false })

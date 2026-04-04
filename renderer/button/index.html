@@ -58,6 +58,9 @@ btn.onclick = async () => {
   icon.innerHTML = `<circle class="spin" cx="8" cy="8" r="5" stroke="rgba(90,170,255,0.8)" stroke-width="1.5" stroke-dasharray="16 8" fill="none"/>`
 
   try {
+    const pos = await ipcRenderer.invoke('get-cursor-pos')
+    ipcRenderer.send('show-popup-loading', { x: pos.x, y: pos.y })
+
     // Re-read selected text fresh at click time — don't rely on cached value
     // which may be stale if the previous selection attempt failed silently
     let text = await ipcRenderer.invoke('read-selected-text-now')
@@ -65,17 +68,22 @@ btn.onclick = async () => {
       // Fallback to cached value
       text = await ipcRenderer.invoke('get-selected-text')
     }
-    if (!text) { setError('No text'); return }
+    if (!text) {
+      ipcRenderer.send('show-popup-error', { msg: '未检测到选中文本' })
+      setError('No text')
+      return
+    }
 
     const result = await ipcRenderer.invoke('translate', { text })
     if (result.success) {
-      const pos = await ipcRenderer.invoke('get-cursor-pos')
-      ipcRenderer.send('show-popup', { x: pos.x, y: pos.y, text, translation: result.result, fromCache: result.fromCache })
+      ipcRenderer.send('show-popup-content', { text, translation: result.result, fromCache: result.fromCache })
       reset()
     } else {
+      ipcRenderer.send('show-popup-error', { msg: result.error })
       setError(result.error)
     }
   } catch (e) {
+    ipcRenderer.send('show-popup-error', { msg: e.message })
     setError(e.message)
   }
 }
