@@ -16,6 +16,20 @@ let skipNextMouseUp = false
 let lastMouseUpTime = 0
 let lastMouseUpPos = { x: 0, y: 0 }
 
+function detectSourceLang(text) {
+  const stripped = text.replace(/\s/g, '')
+  if (!stripped.length) return 'other'
+  const cjk = (stripped.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g) || []).length
+  return cjk / stripped.length > 0.2 ? 'zh' : 'other'
+}
+
+function resolveTargetLang(text, config) {
+  const { sourceLang, targetLang } = config.translation
+  if (sourceLang !== 'auto') return targetLang
+  if (detectSourceLang(text) === 'zh') return 'en'
+  return targetLang
+}
+
 function toLogical(physX, physY) {
   try {
     const displays = screen.getAllDisplays()
@@ -98,7 +112,8 @@ function setupMacShortcut() {
 
     lastSelectedText = text.trim()
     const pos = screen.getCursorScreenPoint()
-    const key = `${config.api.provider}:::${config.translation.targetLang}:::${lastSelectedText}`
+    const effectiveTargetLang = resolveTargetLang(lastSelectedText, config)
+    const key = `${config.api.provider}:::${effectiveTargetLang}:::${lastSelectedText}`
     const cached = cache.get(key)
     if (cached) {
       windowManager.showPopup(pos.x, pos.y, lastSelectedText, cached, true)
@@ -106,7 +121,7 @@ function setupMacShortcut() {
     }
 
     try {
-      const result = await apiClient.translateText(lastSelectedText, config)
+      const result = await apiClient.translateText(lastSelectedText, config, effectiveTargetLang)
       cache.set(key, result)
       windowManager.showPopup(pos.x, pos.y, lastSelectedText, result, false)
     } catch (err) {
@@ -184,15 +199,26 @@ function setupIPC() {
   })
 
   ipcMain.handle('translate', async (event, { text }) => {
-    const key = `${config.api.provider}:::${config.translation.targetLang}:::${text}`
+    const effectiveTargetLang = resolveTargetLang(text, config)
+    const key = `${config.api.provider}:::${effectiveTargetLang}:::${text}`
     const cached = cache.get(key)
     if (cached) return { success: true, result: cached, fromCache: true }
     try {
-      const result = await apiClient.translateText(text, config)
+      const result = await apiClient.translateText(text, config, effectiveTargetLang)
       cache.set(key, result)
       return { success: true, result, fromCache: false }
     } catch (err) {
       console.error('[translate]', err.message)
+      return { success: false, error: err.message }
+    }
+  })
+
+  ipcMain.handle('ask-followup', async (event, { messages }) => {
+    try {
+      const result = await apiClient.chatFollowup(messages, config)
+      return { success: true, result }
+    } catch (err) {
+      console.error('[followup]', err.message)
       return { success: false, error: err.message }
     }
   })
@@ -219,6 +245,7 @@ function setupIPC() {
     windowManager.updatePopupError(msg)
   })
 
+  ipcMain.on('focus-popup', () => windowManager.focusPopup())
   ipcMain.on('hide-button', () => { windowManager.hideButton(); buttonVisible = false })
   ipcMain.on('hide-popup',  () => windowManager.hidePopup())
   ipcMain.on('set-popup-locked', (event, locked) => windowManager.setPopupLocked(locked))

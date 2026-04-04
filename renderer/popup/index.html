@@ -13,6 +13,7 @@ html, body { width: 100%; height: 100%; background: transparent; overflow: hidde
   width: 100%; height: 100%;
   opacity: 0; transform: translateY(4px) scale(0.97);
   transition: opacity 0.15s ease, transform 0.15s ease;
+  display: flex; flex-direction: column;
 }
 #root.visible { opacity: 1; transform: none; }
 #root.hiding  { opacity: 0; transform: translateY(3px) scale(0.98); }
@@ -58,12 +59,12 @@ html, body { width: 100%; height: 100%; background: transparent; overflow: hidde
 .hbtn.on-lock { color: #5aaeff; background: rgba(90,174,255,0.12); }
 .hbtn.on-copy { color: #4dcc80; background: rgba(77,204,128,0.12); }
 
-/* Content */
+/* Translation content */
 .content {
-  flex: 1; padding: 10px 12px 8px; overflow-y: auto; overflow-x: hidden;
+  padding: 10px 12px 8px; overflow-y: auto; overflow-x: hidden;
   -webkit-app-region: no-drag;
   scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.08) transparent;
-  min-height: 0;
+  flex-shrink: 0; height: 100px; min-height: 36px;
 }
 .content::-webkit-scrollbar { width: 3px; }
 .content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
@@ -93,9 +94,85 @@ html, body { width: 100%; height: 100%; background: transparent; overflow: hidde
   line-height: 1.5;
 }
 
+/* Chat section */
+.chat-divider {
+  height: 7px; flex-shrink: 0; cursor: row-resize;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; -webkit-app-region: no-drag;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+.chat-divider::after {
+  content: ''; width: 28px; height: 2px;
+  background: rgba(255,255,255,0.12); border-radius: 1px;
+  transition: background 0.15s;
+}
+.chat-divider:hover::after { background: rgba(255,255,255,0.3); }
+.chat-section {
+  flex: 1; display: flex; flex-direction: column; min-height: 0;
+  -webkit-app-region: no-drag;
+}
+.chat-history {
+  flex: 1; overflow-y: auto; overflow-x: hidden; padding: 6px 10px 4px;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.08) transparent;
+  min-height: 0;
+}
+.chat-history::-webkit-scrollbar { width: 3px; }
+.chat-history::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+.chat-empty {
+  font-size: 11px; color: rgba(255,255,255,0.18); text-align: center;
+  padding: 10px 0; user-select: none;
+}
+.msg {
+  margin-bottom: 6px; font-size: 12px; line-height: 1.55;
+  word-break: break-word; white-space: pre-wrap;
+}
+.msg-user {
+  color: rgba(255,255,255,0.55); text-align: right;
+  padding: 4px 8px; background: rgba(255,255,255,0.05);
+  border-radius: 8px 8px 2px 8px; display: inline-block;
+  float: right; clear: both; max-width: 90%;
+}
+.msg-ai {
+  color: rgba(255,255,255,0.85);
+  padding: 4px 8px; background: rgba(90,170,255,0.1);
+  border-radius: 8px 8px 8px 2px; display: inline-block;
+  float: left; clear: both; max-width: 90%;
+}
+.msg-loading {
+  color: rgba(255,255,255,0.35); font-size: 11px;
+  float: left; clear: both; padding: 4px 0;
+}
+.clearfix::after { content: ''; display: table; clear: both; }
+
+/* Chat input */
+.chat-input-row {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 8px 7px; border-top: 1px solid rgba(255,255,255,0.05);
+  flex-shrink: 0; -webkit-app-region: no-drag;
+}
+#chat-input {
+  flex: 1; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 7px; padding: 5px 9px; font-size: 12px; color: rgba(255,255,255,0.8);
+  outline: none; font-family: inherit;
+  transition: border-color 0.15s;
+}
+#chat-input::placeholder { color: rgba(255,255,255,0.2); }
+#chat-input:focus { border-color: rgba(90,170,255,0.4); }
+#chat-send {
+  width: 26px; height: 26px; flex-shrink: 0;
+  background: rgba(90,170,255,0.2); border: none; border-radius: 6px;
+  color: rgba(90,170,255,0.9); cursor: pointer; font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.12s, transform 0.1s;
+}
+#chat-send:hover { background: rgba(90,170,255,0.35); }
+#chat-send:active { transform: scale(0.9); }
+#chat-send:disabled { opacity: 0.35; cursor: default; }
+
 /* Footer */
 .ftr {
-  padding: 4px 10px 5px; display: flex; align-items: center; justify-content: space-between;
+  padding: 3px 10px 5px; display: flex; align-items: center; justify-content: space-between;
   border-top: 1px solid rgba(255,255,255,0.04); flex-shrink: 0;
 }
 .src { font-size: 10px; color: rgba(255,255,255,0.18); font-style: italic;
@@ -147,6 +224,22 @@ html, body { width: 100%; height: 100%; background: transparent; overflow: hidde
       <div class="translation" id="trans"></div>
     </div>
 
+    <div class="chat-divider"></div>
+
+    <div class="chat-section">
+      <div class="chat-history" id="chat-history">
+        <div class="chat-empty" id="chat-empty">可以追问…</div>
+      </div>
+      <div class="chat-input-row">
+        <input type="text" id="chat-input" placeholder="追问大模型…" autocomplete="off" />
+        <button id="chat-send" title="发送">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M6 10V2M2 6l4-4 4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
     <div class="ftr">
       <span class="src" id="src"></span>
       <svg class="grip" width="10" height="10" viewBox="0 0 10 10">
@@ -159,25 +252,33 @@ html, body { width: 100%; height: 100%; background: transparent; overflow: hidde
 <script>
 const { ipcRenderer, clipboard } = require('electron')
 
-const root    = document.getElementById('root')
-const dot     = document.getElementById('dot')
-const prov    = document.getElementById('prov')
-const cached  = document.getElementById('cached')
-const trans   = document.getElementById('trans')
-const src     = document.getElementById('src')
-const btnCopy = document.getElementById('btn-copy')
-const btnLock = document.getElementById('btn-lock')
-const btnClose= document.getElementById('btn-close')
+const root      = document.getElementById('root')
+const dot       = document.getElementById('dot')
+const prov      = document.getElementById('prov')
+const cached    = document.getElementById('cached')
+const trans     = document.getElementById('trans')
+const src       = document.getElementById('src')
+const btnCopy   = document.getElementById('btn-copy')
+const btnLock   = document.getElementById('btn-lock')
+const btnClose  = document.getElementById('btn-close')
 const lockOpen  = document.getElementById('lock-open')
 const lockClosed= document.getElementById('lock-closed')
+const chatHistory = document.getElementById('chat-history')
+const chatEmpty   = document.getElementById('chat-empty')
+const chatInput   = document.getElementById('chat-input')
+const chatSend    = document.getElementById('chat-send')
 
 const COLORS = { qwen:'#5aaeff', kimi:'#a07aff', openai:'#19c37d', deepseek:'#ff7a5a' }
 
 let locked = false
 let currentTranslation = ''
+let conversationMessages = []   // OpenAI messages format
+let chatBusy = false
 
 ipcRenderer.on('show-loading', () => {
   currentTranslation = ''
+  conversationMessages = []
+  clearChat()
   src.textContent = ''
   cached.style.display = 'none'
   prov.textContent = 'TRANSLATING'
@@ -195,6 +296,12 @@ ipcRenderer.on('show-error', (_, { msg }) => {
 
 ipcRenderer.on('show-content', (_, { text, translation, provider, fromCache }) => {
   currentTranslation = translation
+  conversationMessages = [
+    { role: 'system', content: `You are a helpful translation assistant. The user selected the following text: "${text}". You translated it as: "${translation}". Answer any follow-up questions concisely. Reply in the same language the user asks in.` },
+    { role: 'user', content: text },
+    { role: 'assistant', content: translation }
+  ]
+  clearChat()
   const color = COLORS[provider?.toLowerCase()] || '#5aaeff'
   dot.style.background = color
   prov.textContent = (provider || 'LLM').toUpperCase()
@@ -210,10 +317,133 @@ ipcRenderer.on('reset-state', () => {
   root.classList.add('hiding')
   locked = false
   syncLock()
-  setTimeout(() => { root.classList.remove('hiding'); trans.textContent = ''; src.textContent = '' }, 160)
+  setTimeout(() => {
+    root.classList.remove('hiding')
+    trans.textContent = ''
+    src.textContent = ''
+    currentTranslation = ''
+    conversationMessages = []
+    clearChat()
+  }, 160)
 })
 
-// Copy
+// ── Chat ──────────────────────────────────────────────────────────────────────
+
+function clearChat() {
+  chatHistory.innerHTML = '<div class="chat-empty" id="chat-empty">可以追问…</div>'
+  chatInput.value = ''
+  chatBusy = false
+  chatSend.disabled = false
+}
+
+function appendMessage(role, text) {
+  const emptyEl = chatHistory.querySelector('.chat-empty')
+  if (emptyEl) emptyEl.remove()
+
+  const wrap = document.createElement('div')
+  wrap.className = 'clearfix'
+  const msg = document.createElement('div')
+  msg.className = role === 'user' ? 'msg msg-user' : 'msg msg-ai'
+  msg.textContent = text
+  wrap.appendChild(msg)
+  chatHistory.appendChild(wrap)
+  chatHistory.scrollTop = chatHistory.scrollHeight
+  return wrap
+}
+
+function appendLoadingIndicator() {
+  const emptyEl = chatHistory.querySelector('.chat-empty')
+  if (emptyEl) emptyEl.remove()
+
+  const wrap = document.createElement('div')
+  wrap.className = 'clearfix'
+  const msg = document.createElement('div')
+  msg.className = 'msg msg-loading'
+  msg.innerHTML = `<div class="loading-wrap"><div class="spinner"></div></div>`
+  wrap.appendChild(msg)
+  chatHistory.appendChild(wrap)
+  chatHistory.scrollTop = chatHistory.scrollHeight
+  return wrap
+}
+
+async function sendFollowup() {
+  const question = chatInput.value.trim()
+  if (!question || chatBusy || !conversationMessages.length) return
+
+  chatBusy = true
+  chatSend.disabled = true
+  chatInput.value = ''
+
+  appendMessage('user', question)
+
+  const messages = [...conversationMessages, { role: 'user', content: question }]
+  const loadingEl = appendLoadingIndicator()
+
+  const res = await ipcRenderer.invoke('ask-followup', { messages })
+
+  loadingEl.remove()
+  chatBusy = false
+  chatSend.disabled = false
+
+  if (res.success) {
+    appendMessage('ai', res.result)
+    conversationMessages.push({ role: 'user', content: question })
+    conversationMessages.push({ role: 'assistant', content: res.result })
+  } else {
+    const wrap = document.createElement('div')
+    wrap.className = 'clearfix'
+    const msg = document.createElement('div')
+    msg.className = 'msg msg-ai'
+    msg.style.color = 'rgba(255,100,100,0.8)'
+    msg.textContent = '请求失败：' + res.error
+    wrap.appendChild(msg)
+    chatHistory.appendChild(wrap)
+    chatHistory.scrollTop = chatHistory.scrollHeight
+  }
+  chatInput.focus()
+}
+
+// ── Divider drag ─────────────────────────────────────────────────────────────
+
+const divider    = document.querySelector('.chat-divider')
+const contentEl  = document.querySelector('.content')
+
+let dragState = null
+
+divider.addEventListener('mousedown', (e) => {
+  e.preventDefault()
+  dragState = { startY: e.clientY, startH: contentEl.offsetHeight }
+  document.body.style.cursor = 'row-resize'
+  document.body.style.userSelect = 'none'
+})
+
+document.addEventListener('mousemove', (e) => {
+  if (!dragState) return
+  const dy = e.clientY - dragState.startY
+  const newH = Math.max(36, dragState.startH + dy)
+  contentEl.style.height = newH + 'px'
+})
+
+document.addEventListener('mouseup', () => {
+  if (!dragState) return
+  dragState = null
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+})
+
+// ── On Windows the popup has WS_EX_NOACTIVATE, so clicking the input
+// doesn't activate the window. We request activation explicitly on mousedown.
+chatInput.addEventListener('mousedown', () => {
+  ipcRenderer.send('focus-popup')
+})
+
+chatSend.onclick = sendFollowup
+chatInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendFollowup() }
+})
+
+// ── Copy ──────────────────────────────────────────────────────────────────────
+
 btnCopy.onclick = () => {
   if (!currentTranslation) return
   clipboard.writeText(currentTranslation)
@@ -225,7 +455,8 @@ btnCopy.onclick = () => {
   }, 1500)
 }
 
-// Lock
+// ── Lock ──────────────────────────────────────────────────────────────────────
+
 btnLock.onclick = () => {
   locked = !locked
   syncLock()
@@ -245,21 +476,22 @@ function syncLock() {
   }
 }
 
-// ESC key to close
+// ── Close / ESC ───────────────────────────────────────────────────────────────
+
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
+  if (e.key === 'Escape' && document.activeElement !== chatInput) {
     locked = false
     ipcRenderer.send('set-popup-locked', false)
     ipcRenderer.send('hide-popup')
   }
 })
 
-// Close
 btnClose.onclick = () => {
   locked = false
   ipcRenderer.send('set-popup-locked', false)
   ipcRenderer.send('hide-popup')
 }
+
 function escapeHtml(str) {
   if (!str) return ''
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')

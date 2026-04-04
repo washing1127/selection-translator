@@ -6,31 +6,8 @@ const LANG_NAMES = {
   fr: 'French', de: 'German', es: 'Spanish', ru: 'Russian'
 }
 
-async function translateText(text, config) {
-  const { provider, apiKey, providers } = config.api
-  const { sourceLang, targetLang } = config.translation
-  const providerConfig = providers[provider]
-  if (!providerConfig) throw new Error(`Unknown provider: ${provider}`)
-
-  const model = config.api.model || providerConfig.model
-  const target = LANG_NAMES[targetLang] || targetLang
-  const source = sourceLang === 'auto' ? '' : ` from ${LANG_NAMES[sourceLang] || sourceLang}`
-
-  const body = JSON.stringify({
-    model,
-    messages: [
-      {
-        role: 'system',
-        content: `You are a professional translator. Translate the user's text${source} into ${target}. Output ONLY the translated text, no explanations.`
-      },
-      { role: 'user', content: text }
-    ],
-    max_tokens: 2048,
-    temperature: 0.3
-  })
-
+function _request(body, providerConfig, apiKey) {
   const url = new URL(providerConfig.baseUrl + providerConfig.chatPath)
-
   return new Promise((resolve, reject) => {
     const options = {
       hostname: url.hostname,
@@ -44,7 +21,6 @@ async function translateText(text, config) {
       },
       timeout: 30000
     }
-
     const lib = url.protocol === 'https:' ? https : http
     const req = lib.request(options, (res) => {
       let data = ''
@@ -68,4 +44,40 @@ async function translateText(text, config) {
   })
 }
 
-module.exports = { translateText }
+async function translateText(text, config, effectiveTargetLang) {
+  const { provider, apiKey, providers } = config.api
+  const { sourceLang, targetLang } = config.translation
+  const providerConfig = providers[provider]
+  if (!providerConfig) throw new Error(`Unknown provider: ${provider}`)
+
+  const model = config.api.model || providerConfig.model
+  const target = LANG_NAMES[effectiveTargetLang || targetLang] || (effectiveTargetLang || targetLang)
+  const source = sourceLang === 'auto' ? '' : ` from ${LANG_NAMES[sourceLang] || sourceLang}`
+
+  const body = JSON.stringify({
+    model,
+    messages: [
+      {
+        role: 'system',
+        content: `You are a professional translator. Translate the user's text${source} into ${target}. Output ONLY the translated text, no explanations.`
+      },
+      { role: 'user', content: text }
+    ],
+    max_tokens: 2048,
+    temperature: 0.3
+  })
+
+  return _request(body, providerConfig, apiKey)
+}
+
+async function chatFollowup(messages, config) {
+  const { provider, apiKey, providers } = config.api
+  const providerConfig = providers[provider]
+  if (!providerConfig) throw new Error(`Unknown provider: ${provider}`)
+
+  const model = config.api.model || providerConfig.model
+  const body = JSON.stringify({ model, messages, max_tokens: 2048, temperature: 0.7 })
+  return _request(body, providerConfig, apiKey)
+}
+
+module.exports = { translateText, chatFollowup }

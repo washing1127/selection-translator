@@ -1,6 +1,6 @@
 const { BrowserWindow, screen } = require('electron')
 const path = require('path')
-const { setNoActivate } = require('./winNoActivate')
+const { setNoActivate, clearNoActivate } = require('./winNoActivate')
 
 class WindowManager {
   constructor(config) {
@@ -74,8 +74,8 @@ class WindowManager {
 
   async _createPopupWindow() {
     this.popupWin = new BrowserWindow({
-      width: 360, height: 190,
-      minWidth: 260, minHeight: 130,
+      width: 360, height: 300,
+      minWidth: 260, minHeight: 200,
       show: false, frame: false, transparent: true,
       alwaysOnTop: true, skipTaskbar: true,
       resizable: true, movable: true,
@@ -163,11 +163,22 @@ class WindowManager {
     this.popupWin.webContents.send('show-error', { msg })
   }
 
+  focusPopup() {
+    if (!this.popupWin?.isVisible()) return
+    if (process.platform === 'win32') {
+      clearNoActivate(this.popupWin, () => { this.popupWin?.focus() })
+    } else {
+      this.popupWin.focus()
+    }
+  }
+
   hidePopup() {
     if (!this.popupWin?.isVisible()) return
     this.popupLocked = false
     this.popupWin.webContents.send('reset-state')
     this.popupWin.hide()
+    // Re-apply WS_EX_NOACTIVATE so next showInactive() won't steal focus
+    if (process.platform === 'win32') setNoActivate(this.popupWin)
   }
 
   setPopupLocked(locked) {

@@ -44,4 +44,42 @@ public class WinHelper {
   }
 }
 
-module.exports = { setNoActivate }
+function clearNoActivate(win, callback) {
+  if (process.platform !== 'win32') { if (callback) callback(); return }
+  try {
+    const hwnd = win.getNativeWindowHandle().readBigInt64LE()
+    const ps = `
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class WinHelper {
+  const int GWL_EXSTYLE = -20;
+  const long WS_EX_NOACTIVATE = 0x08000000L;
+  [DllImport("user32.dll")] static extern long GetWindowLong(IntPtr hWnd, int nIndex);
+  [DllImport("user32.dll")] static extern long SetWindowLong(IntPtr hWnd, int nIndex, long dwNewLong);
+  [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr hWnd);
+  public static void Apply(long hwnd) {
+    IntPtr h = new IntPtr(hwnd);
+    long style = GetWindowLong(h, GWL_EXSTYLE);
+    SetWindowLong(h, GWL_EXSTYLE, style & ~WS_EX_NOACTIVATE);
+    SetForegroundWindow(h);
+  }
+}
+"@
+[WinHelper]::Apply(${hwnd})
+`
+    const enc = Buffer.from(ps, 'utf16le').toString('base64')
+    exec(`powershell -NoProfile -NonInteractive -EncodedCommand ${enc}`,
+      (err) => {
+        if (err) console.warn('[winNoActivate] clear failed:', err.message)
+        else console.log('[winNoActivate] WS_EX_NOACTIVATE cleared')
+        if (callback) callback()
+      }
+    )
+  } catch (e) {
+    console.warn('[winNoActivate] error:', e.message)
+    if (callback) callback()
+  }
+}
+
+module.exports = { setNoActivate, clearNoActivate }
